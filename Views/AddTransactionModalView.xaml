@@ -1,7 +1,7 @@
 ﻿<Window x:Class="CashFlow.Views.AddTransactionModalView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Aggiungi Transazione" 
+        Title="{Binding WindowTitle}" 
         Width="400"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
@@ -67,8 +67,8 @@
 
         <!-- Pulsante Aggiungi -->
         <Button Grid.Row="10" 
-                Content="Aggiungi" 
-                Command="{Binding AddTransactionCommand}" 
+                Content="{Binding ActionButtonText}" 
+                Command="{Binding ActionCommand}" 
                 Width="100" 
                 Height="25" 
                 HorizontalAlignment="Right" 

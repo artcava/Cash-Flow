@@ -87,6 +87,7 @@ public class TransactionViewModel : ViewModel
     public ICommand DeleteTransactionCommand { get; }
     public ICommand FilterByMonthCommand { get; }
     public ICommand OpenAddTransactionModalCommand { get; }
+    public ICommand OpenEditTransactionModalCommand { get; }
 
     public TransactionViewModel(CashFlowContext context)
     {
@@ -96,6 +97,7 @@ public class TransactionViewModel : ViewModel
         DeleteTransactionCommand = new RelayCommand(param => DeleteTransaction(param), param => CanDeleteTransaction(param));
         FilterByMonthCommand = new RelayCommand(param => FilterByMonth(param as string));
         OpenAddTransactionModalCommand = new RelayCommand(_ => OpenAddTransactionModal());
+        OpenEditTransactionModalCommand = new RelayCommand(_ => OpenEditTransactionModal(), _ => SelectedTransaction != null);
 
 
         LoadData();
@@ -216,6 +218,27 @@ public class TransactionViewModel : ViewModel
         var modalView = new AddTransactionModalView(modalViewModel)
         {
             Owner = Application.Current.MainWindow
+        };
+        modalView.ShowDialog();
+    }
+    private void OpenEditTransactionModal()
+    {
+        if (SelectedTransaction == null) return;
+
+        var modalViewModel = new AddTransactionModalViewModel(
+            _context,
+            this,
+            () => Application.Current.MainWindow.Dispatcher.Invoke(() =>
+            {
+                var modal = Application.Current.Windows.OfType<AddTransactionModalView>().FirstOrDefault();
+                modal?.Close();
+            }),
+            SelectedTransaction); // Passa la transazione selezionata
+
+        var modalView = new AddTransactionModalView(modalViewModel)
+        {
+            Owner = Application.Current.MainWindow,
+            Title = "Modifica Transazione" // Cambia il titolo
         };
         modalView.ShowDialog();
     }

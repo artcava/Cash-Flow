@@ -20,6 +20,13 @@ public class AddTransactionModalViewModel : ViewModel
     private Account? _selectedAccount;
     private Activity? _selectedActivity;
 
+    private Transaction? _transactionToEdit;
+    private bool _isEditMode;
+
+    public string WindowTitle => _isEditMode ? "Modifica Transazione" : "Aggiungi Transazione";
+    public string ActionButtonText => _isEditMode ? "Salva" : "Aggiungi";
+    public ICommand ActionCommand { get; }
+
     public ObservableCollection<Account> Accounts => _parentViewModel.Accounts;
     public ObservableCollection<Activity> Activities => _parentViewModel.Activities;
 
@@ -73,16 +80,32 @@ public class AddTransactionModalViewModel : ViewModel
         }
     }
 
-    public ICommand AddTransactionCommand { get; }
-
-    public AddTransactionModalViewModel(CashFlowContext context, TransactionViewModel parentViewModel, Action closeWindow)
+    public AddTransactionModalViewModel(CashFlowContext context, TransactionViewModel parentViewModel, Action closeWindow, Transaction? transactionToEdit = null)
     {
         _context = context;
         _parentViewModel = parentViewModel;
         _closeWindow = closeWindow;
+        _transactionToEdit = transactionToEdit;
+        _isEditMode = transactionToEdit != null;
+        if (_isEditMode)
+        {
+            // Inizializza i campi con i valori della transazione da modificare
+            NewDescription = transactionToEdit.Description;
+            NewAmount = Math.Abs(transactionToEdit.Amount);
+            NewDate = transactionToEdit.Date;
+            SelectedAccount = Accounts.FirstOrDefault(a => a.Id == _transactionToEdit.AccountId);
+            SelectedActivity = Activities.FirstOrDefault(a => a.Id == _transactionToEdit.ActivityId);
+        }
 
-        // Inizializza i campi (già fatto dai valori di default)
-        AddTransactionCommand = new RelayCommand(_ => AddTransaction(), _ => CanAddTransaction());
+        ActionCommand = new RelayCommand(_ => ExecuteAction(), _ => CanExecuteAction());
+    }
+
+    private void ExecuteAction()
+    {
+        if (_isEditMode)
+            UpdateTransaction();
+        else
+            AddTransaction();
     }
 
     private void AddTransaction()
@@ -127,7 +150,35 @@ public class AddTransactionModalViewModel : ViewModel
             _closeWindow();
         }
     }
+    private void UpdateTransaction()
+    {
+        try
+        {
+            if (_transactionToEdit == null || SelectedAccount == null || SelectedActivity == null) return;
 
+            var transaction = _context.Transactions.FirstOrDefault(t => t.Id == _transactionToEdit.Id);
+            if (transaction == null) return;
+
+            transaction.Date = NewDate;
+            transaction.Description = NewDescription;
+            transaction.Amount = SelectedActivity.IsIncome ? Math.Abs(NewAmount) : -Math.Abs(NewAmount);
+            transaction.AccountId = SelectedAccount.Id;
+            transaction.ActivityId = SelectedActivity.Id;
+
+            _context.Transactions.Update(transaction);
+            _context.SaveChanges();
+
+            // Aggiorna la UI
+            _parentViewModel.ManageMonths(transaction.Date.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture));
+
+            _closeWindow();
+
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Errore durante l'aggiornamento: {ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
     private void ResetFields()
     {
         NewDescription = string.Empty;
@@ -137,7 +188,9 @@ public class AddTransactionModalViewModel : ViewModel
         SelectedActivity = null;
     }
 
-    private bool CanAddTransaction() =>
-        !string.IsNullOrEmpty(NewDescription) && NewAmount != 0 &&
-        SelectedAccount != null && SelectedActivity != null;
+    private bool CanExecuteAction() =>
+        !string.IsNullOrEmpty(NewDescription) &&
+        NewAmount != 0 &&
+        SelectedAccount != null &&
+        SelectedActivity != null;
 }

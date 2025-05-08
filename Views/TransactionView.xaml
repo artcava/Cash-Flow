@@ -21,6 +21,7 @@
         <DataGrid Grid.Row="1" 
                   ItemsSource="{Binding Transactions}" 
                   SelectedItem="{Binding SelectedTransaction}" 
+                  MouseDoubleClick="DataGrid_MouseDoubleClick"
                   AutoGenerateColumns="False" 
                   CanUserAddRows="False">
             <DataGrid.Columns>
