@@ -1,6 +1,8 @@
-﻿namespace CashFlow.Models;
+﻿using CashFlow.Interfaces;
 
-public class Transaction
+namespace CashFlow.Models;
+
+public class Transaction : IEntity
 {
     public int Id { get; set; }
     public DateTime Date { get; set; }

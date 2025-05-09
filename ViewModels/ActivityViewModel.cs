@@ -1,16 +1,14 @@
 ﻿using CashFlow.Core;
-using CashFlow.Data;
+using CashFlow.Interfaces;
 using CashFlow.Models;
-using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Windows.Input;
 
 namespace CashFlow.ViewModels;
 
 public class ActivityViewModel : ViewModel
 {
-    private readonly CashFlowContext _context;
+    private readonly IUnitOfWork _unitOfWork;
     private string _newActivityName = string.Empty;
     private bool _newActivityIsIncome;
     private Activity? _selectedActivity;
@@ -60,9 +58,9 @@ public class ActivityViewModel : ViewModel
     public ICommand UpdateActivityCommand { get; }
     public ICommand DeleteActivityCommand { get; }
 
-    public ActivityViewModel(CashFlowContext context)
+    public ActivityViewModel(IUnitOfWork _uow)
     {
-        _context = context;
+        _unitOfWork = _uow;
 
         AddActivityCommand = new RelayCommand(_ => AddActivity(), CanAddActivity);
         UpdateActivityCommand = new RelayCommand(_ => UpdateActivity(), CanUpdateActivity);
@@ -71,45 +69,42 @@ public class ActivityViewModel : ViewModel
         LoadData();
     }
 
-    private void LoadData()
+    private async Task LoadData()
     {
         Activities.Clear();
-        var activities = _context.Activities.AsNoTracking().OrderBy(a => a.Name).ToList();
-        foreach (var activity in activities)
+        var activities = await _unitOfWork.Activities.GetAllAsync();
+        foreach (var activity in activities.OrderBy(a => a.Name))
         {
             Activities.Add(activity);
         }
     }
 
-    private void AddActivity()
+    private async void AddActivity()
     {
         var activity = new Activity
         {
             Name = NewActivityName,
             IsIncome = NewActivityIsIncome
         };
-        _context.Activities.Add(activity);
-        _context.SaveChanges();
+        await _unitOfWork.Activities.AddAsync(activity);
 
         Activities.Add(activity);
         NewActivityName = string.Empty;
         NewActivityIsIncome = false;
     }
 
-    private void UpdateActivity()
+    private async void UpdateActivity()
     {
         if (SelectedActivity == null) return;
 
-        _context.Activities.Update(SelectedActivity);
-        _context.SaveChanges();
+        await _unitOfWork.Activities.AddAsync(SelectedActivity);
     }
 
-    private void DeleteActivity()
+    private async void DeleteActivity()
     {
         if (SelectedActivity == null) return;
 
-        _context.Activities.Remove(SelectedActivity);
-        _context.SaveChanges();
+        await _unitOfWork.Activities.DeleteAsync(SelectedActivity.Id);
 
         Activities.Remove(SelectedActivity);
         SelectedActivity = null;

@@ -1,14 +1,12 @@
 ﻿using CashFlow.Core;
-using CashFlow.Data;
-using Microsoft.EntityFrameworkCore;
+using CashFlow.Interfaces;
 using System.Collections.ObjectModel;
-using System.Linq;
 
 namespace CashFlow.ViewModels;
 
 public class SummaryViewModel : ViewModel
 {
-    private readonly CashFlowContext _context;
+    private readonly IUnitOfWork _unitOfWork;
 
     private ObservableCollection<YearlySummary> _summaries = new ObservableCollection<YearlySummary>();
     public ObservableCollection<YearlySummary> Summaries
@@ -21,19 +19,19 @@ public class SummaryViewModel : ViewModel
         }
     }
 
-    public SummaryViewModel(CashFlowContext context)
+    public SummaryViewModel(IUnitOfWork _uow)
     {
-        _context = context;
+        _unitOfWork = _uow;
         LoadData();
     }
 
-    private void LoadData()
+    private async Task LoadData()
     {
         Summaries.Clear();
 
-        var summaries = _context.Transactions
-            .AsNoTracking()
-            .GroupBy(t => t.Date.Year)
+        var transactions = await _unitOfWork.Transactions.GetAllAsync();
+
+        var summaries = transactions.GroupBy(t => t.Date.Year)
             .Select(g => new YearlySummary
             {
                 Year = g.Key,

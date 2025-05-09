@@ -6,6 +6,10 @@ using CashFlow.Views;
 using System.Windows;
 using CashFlow.Services;
 using CashFlow.Core;
+using CashFlow.Interfaces;
+using CashFlow.Repositories;
+using CashFlow.Uow;
+using System.Configuration;
 
 namespace CashFlow;
 
@@ -16,28 +20,20 @@ public partial class App : Application
     {
         IServiceCollection services = new ServiceCollection();
 
-        // Configura SQLite
-        services.AddDbContext<CashFlowContext>(options =>
+        services.AddDbContextFactory<CashFlowContext>(options =>
             options.UseSqlite("Data Source=cashflow.db")
-                   .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+            .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
+            .EnableSensitiveDataLogging(),
+            ServiceLifetime.Scoped);
 
+        // Registra i repository
+        services.AddRepositories();
         // Registra i viewModel
-        services.AddSingleton<NavigationViewModel>();
-        services.AddSingleton<TransactionViewModel>();
-        services.AddSingleton<SummaryViewModel>();
-        services.AddSingleton<ActivityViewModel>();
+        services.AddViewModels();
         // Registra i servizi
-        services.AddSingleton<NavigationService>();
-        services.AddSingleton<ViewModelFactory>();
+        services.AddServices();
         // Registra le finestre
-        services.AddSingleton<MainWindow>(provider => new MainWindow
-        {
-            DataContext = provider.GetRequiredService<NavigationViewModel>()
-        });
-
-        services.AddSingleton<TransactionView>();
-        services.AddSingleton<SummaryView>();
-        services.AddSingleton<ActivityView>();
+        services.AddViews();
 
         services.AddSingleton<Func<Type, object, ViewModel>>(provider =>
             provider.GetRequiredService<ViewModelFactory>().CreateViewModel
@@ -58,5 +54,40 @@ public partial class App : Application
             var context = scope.ServiceProvider.GetRequiredService<CashFlowContext>();
             context.Database.EnsureCreated();
         }
+    }
+}
+
+public static class ServiceCollectionExtensions
+{
+    public static void AddRepositories(this IServiceCollection services)
+    {
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        // Registrazione dei repository
+        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        services.AddScoped<ITransactionRepository, TransactionRepository>();
+    }
+
+    public static void AddViewModels(this IServiceCollection services)
+    {
+        services.AddTransient<NavigationViewModel>();
+        services.AddTransient<TransactionViewModel>();
+        services.AddTransient<SummaryViewModel>();
+        services.AddTransient<ActivityViewModel>();
+    }
+    public static void AddServices(this IServiceCollection services)
+    {
+        services.AddSingleton<NavigationService>();
+        services.AddSingleton<ViewModelFactory>();
+    }
+
+    public static void AddViews(this IServiceCollection services)
+    {
+        services.AddSingleton<MainWindow>(provider => new MainWindow
+        {
+            DataContext = provider.GetRequiredService<NavigationViewModel>()
+        });
+        services.AddTransient<TransactionView>();
+        services.AddTransient<SummaryView>();
+        services.AddTransient<ActivityView>();
     }
 }

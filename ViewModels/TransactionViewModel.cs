@@ -1,11 +1,8 @@
 ﻿using CashFlow.Core;
-using CashFlow.Data;
+using CashFlow.Interfaces;
 using CashFlow.Models;
 using CashFlow.Views;
-using Microsoft.EntityFrameworkCore;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 
@@ -13,7 +10,8 @@ namespace CashFlow.ViewModels;
 
 public class TransactionViewModel : ViewModel
 {
-    private readonly CashFlowContext _context;
+    private readonly IUnitOfWork _unitOfWork;
+    
     private string? _selectedMonth;
     private Transaction? _selectedTransaction;
 
@@ -89,9 +87,9 @@ public class TransactionViewModel : ViewModel
     public ICommand OpenAddTransactionModalCommand { get; }
     public ICommand OpenEditTransactionModalCommand { get; }
 
-    public TransactionViewModel(CashFlowContext context)
+    public TransactionViewModel(IUnitOfWork _uow)
     {
-        _context = context;
+        _unitOfWork = _uow;
 
         LoadDataCommand = new RelayCommand(_ => LoadData());
         DeleteTransactionCommand = new RelayCommand(param => DeleteTransaction(param), param => CanDeleteTransaction(param));
@@ -103,21 +101,17 @@ public class TransactionViewModel : ViewModel
         LoadData();
     }
 
-    private void LoadData()
+    private async void LoadData()
     {
         Transactions.Clear();
         Accounts.Clear();
         Activities.Clear();
         Months.Clear();
 
-        var transactions = _context.Transactions
-            .Include(t => t.Activity)
-            .Include(t => t.Account)
-            .AsNoTracking()
-            .ToList();
+        var transactions = await _unitOfWork.Transactions.GetAllWithIncludeAsync(t => t.Activity, t => t.Account);
 
-        var accounts = _context.Accounts.AsNoTracking().ToList();
-        var activities = _context.Activities.AsNoTracking().ToList();
+        var accounts = await _unitOfWork.Accounts.GetAllAsync();
+        var activities = await _unitOfWork.Activities.GetAllAsync();
 
         foreach (var transaction in transactions)
             Transactions.Add(transaction);
@@ -137,13 +131,12 @@ public class TransactionViewModel : ViewModel
     {
         LoadMonths();
         SelectedMonth = Months.FirstOrDefault(m => m == month) ?? Months.FirstOrDefault();
-        //FilterByMonth(selectedMonth);
     }
     private void LoadMonths()
     {
         Months.Clear();
-        var months = _context.Transactions
-            .AsNoTracking()
+
+        var months = Transactions
             .Select(t => new { t.Date.Year, t.Date.Month })
             .Distinct()
             .OrderByDescending(m => m.Year)
@@ -156,25 +149,20 @@ public class TransactionViewModel : ViewModel
             Months.Add(month);
     }
 
-    private void FilterByMonth(string? month)
+    private async Task FilterByMonth(string? month)
     {
         if (string.IsNullOrEmpty(month)) return;
 
         Transactions.Clear();
         var date = DateTime.ParseExact(month, "MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
-        var transactions = _context.Transactions
-            .Include(t => t.Activity)
-            .Include(t => t.Account)
-            .AsNoTracking()
-            .Where(t => t.Date.Year == date.Year && t.Date.Month == date.Month)
-            .OrderByDescending(t => t.Date)
-            .ToList();
 
-        foreach (var transaction in transactions)
+        var transactions = await _unitOfWork.Transactions.FindAsync(t => t.Date.Year == date.Year && t.Date.Month == date.Month, t => t.Activity, testc => testc.Account);
+
+        foreach (var transaction in transactions.OrderByDescending(t => t.Date))
             Transactions.Add(transaction);
     }
 
-    private void DeleteTransaction(object parameter)
+    private async Task DeleteTransaction(object parameter)
     {
         var transaction = parameter as Transaction;
         if (transaction == null) return;
@@ -188,13 +176,8 @@ public class TransactionViewModel : ViewModel
 
         if (result != MessageBoxResult.Yes) return;
 
-        // Trova la transazione nel contesto per eliminarla
-        var entity = _context.Transactions.Find(transaction.Id);
-        if (entity != null)
-        {
-            _context.Transactions.Remove(entity);
-            _context.SaveChanges();
-        }
+        // Elimina la transazione nel contesto
+        await _unitOfWork.Transactions.DeleteAsync(transaction.Id);
 
         // Rimuove la transazione dalla collezione
         Transactions.Remove(transaction);
@@ -210,7 +193,7 @@ public class TransactionViewModel : ViewModel
 
     private void OpenAddTransactionModal()
     {
-        var modalViewModel = new AddTransactionModalViewModel(_context, this, () => Application.Current.MainWindow.Dispatcher.Invoke(() =>
+        var modalViewModel = new AddTransactionModalViewModel(_unitOfWork, this, () => Application.Current.MainWindow.Dispatcher.Invoke(() =>
         {
             var modal = Application.Current.Windows.OfType<AddTransactionModalView>().FirstOrDefault();
             modal?.Close();
@@ -226,7 +209,7 @@ public class TransactionViewModel : ViewModel
         if (SelectedTransaction == null) return;
 
         var modalViewModel = new AddTransactionModalViewModel(
-            _context,
+            _unitOfWork,
             this,
             () => Application.Current.MainWindow.Dispatcher.Invoke(() =>
             {

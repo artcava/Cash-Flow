@@ -1,7 +1,6 @@
 ﻿using CashFlow.Core;
-using CashFlow.Data;
+using CashFlow.Interfaces;
 using CashFlow.Models;
-using System;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
@@ -10,7 +9,7 @@ namespace CashFlow.ViewModels;
 
 public class AddTransactionModalViewModel : ViewModel
 {
-    private readonly CashFlowContext _context;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly TransactionViewModel _parentViewModel;
     private readonly Action _closeWindow;
 
@@ -80,9 +79,9 @@ public class AddTransactionModalViewModel : ViewModel
         }
     }
 
-    public AddTransactionModalViewModel(CashFlowContext context, TransactionViewModel parentViewModel, Action closeWindow, Transaction? transactionToEdit = null)
+    public AddTransactionModalViewModel(IUnitOfWork _uow, TransactionViewModel parentViewModel, Action closeWindow, Transaction? transactionToEdit = null)
     {
-        _context = context;
+        _unitOfWork = _uow;
         _parentViewModel = parentViewModel;
         _closeWindow = closeWindow;
         _transactionToEdit = transactionToEdit;
@@ -100,15 +99,15 @@ public class AddTransactionModalViewModel : ViewModel
         ActionCommand = new RelayCommand(_ => ExecuteAction(), _ => CanExecuteAction());
     }
 
-    private void ExecuteAction()
+    private async void ExecuteAction()
     {
         if (_isEditMode)
-            UpdateTransaction();
+            await UpdateTransaction();
         else
-            AddTransaction();
+            await AddTransaction();
     }
 
-    private void AddTransaction()
+    private async Task AddTransaction()
     {
         if (SelectedAccount == null || SelectedActivity == null) return;
 
@@ -121,8 +120,7 @@ public class AddTransactionModalViewModel : ViewModel
             ActivityId = SelectedActivity.Id,
         };
 
-        _context.Transactions.Add(transaction);
-        _context.SaveChanges();
+        await _unitOfWork.Transactions.AddAsync(transaction);
 
         transaction.Account = SelectedAccount;
         transaction.Activity = SelectedActivity;
@@ -150,13 +148,13 @@ public class AddTransactionModalViewModel : ViewModel
             _closeWindow();
         }
     }
-    private void UpdateTransaction()
+    private async Task UpdateTransaction()
     {
         try
         {
             if (_transactionToEdit == null || SelectedAccount == null || SelectedActivity == null) return;
 
-            var transaction = _context.Transactions.FirstOrDefault(t => t.Id == _transactionToEdit.Id);
+            var transaction = await _unitOfWork.Transactions.GetByIdAsync(_transactionToEdit.Id);
             if (transaction == null) return;
 
             transaction.Date = NewDate;
@@ -165,8 +163,7 @@ public class AddTransactionModalViewModel : ViewModel
             transaction.AccountId = SelectedAccount.Id;
             transaction.ActivityId = SelectedActivity.Id;
 
-            _context.Transactions.Update(transaction);
-            _context.SaveChanges();
+            await _unitOfWork.Transactions.UpdateAsync(transaction);
 
             // Aggiorna la UI
             _parentViewModel.ManageMonths(transaction.Date.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture));

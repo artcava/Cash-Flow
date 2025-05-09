@@ -1,6 +1,8 @@
-﻿namespace CashFlow.Models;
+﻿using CashFlow.Interfaces;
 
-public class Activity
+namespace CashFlow.Models;
+
+public class Activity : IEntity
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
