@@ -1,24 +1,32 @@
 ﻿<UserControl x:Class="CashFlow.Views.TransactionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Margin="10">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Filtro per mese e pulsante Aggiungi -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <ComboBox ItemsSource="{Binding Months}" 
-                      SelectedItem="{Binding SelectedMonth}" 
-                      Width="150" Margin="0,0,10,0" ToolTip="Filtra per mese"/>
-            <Button Content="Aggiungi Transazione" 
-                    Command="{Binding OpenAddTransactionModalCommand}" 
-                    Width="150" Margin="0,0,10,0"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <ComboBox materialDesign:HintAssist.Hint="Mese"
+                     
+                     ItemsSource="{Binding Months}"
+                     SelectedItem="{Binding SelectedMonth}"
+                     Width="200"/>
+
+            <Button Command="{Binding OpenAddTransactionModalCommand}"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    ToolTip="Aggiungi transazione"
+                    Margin="16 0 0 0">
+                <materialDesign:PackIcon Kind="Plus" Width="16" Height="16"/>
+            </Button>
         </StackPanel>
-        
+
         <!-- Lista transazioni -->
         <DataGrid Grid.Row="1" 
+                  
                   ItemsSource="{Binding Transactions}" 
                   SelectedItem="{Binding SelectedTransaction}" 
                   MouseDoubleClick="DataGrid_MouseDoubleClick"

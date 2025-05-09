@@ -9,7 +9,6 @@ using CashFlow.Core;
 using CashFlow.Interfaces;
 using CashFlow.Repositories;
 using CashFlow.Uow;
-using System.Configuration;
 
 namespace CashFlow;
 
